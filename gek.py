@@ -195,6 +195,8 @@ while not done:
         #the lowest angle considered to be within that note's range
         angle_starts = [75, 105, 135, 155, 185, 215, 245, 275, 305, 335, 5, 35]
         textPrint.tprint(screen, "NOTE:: {}".format(convertXYtoDirection(lx, ly)))
+        textPrint.tprint(screen, "left trigger magnitude:: {}".format(math.sqrt(lx * lx + ly * ly)))
+        textPrint.tprint(screen, "right trigger magnitude:: {}".format(math.sqrt(rx * rx + ry * ry)))
 
         # for i in range(0, len(notes)):
         #     if leftStickAngle >= angle_starts[i] and leftStickAngle < angle_starts[(i + 1) % len(angle_starts)]:
