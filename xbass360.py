@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Xbox 360 controller to MIDI controller.
+"""Use an Xbox 360 controller as a Duophonic MIDI Bass instrument.
 
 This program takes inputs from an Xbox 360 controller and outputs
 MIDI messages derived from these inputs.
@@ -125,6 +125,8 @@ joystick = None
 screen.fill(WHITE)
 pygame.display.flip()
 # Main program loop.
+lastLeftHandNote = 0
+lastRightHandNote = -1
 while not done:
 
     for event in pygame.event.get():
@@ -149,22 +151,30 @@ while not done:
                 ly = joystick.get_axis(1)
                 rx = joystick.get_axis(2)
                 ry = joystick.get_axis(3)
-                ltrigger = joystick.get_axis(4)
-                rtrigger = joystick.get_axis(5)
+                l_stick_btn = joystick.get_button(8)
+                r_stick_btn = joystick.get_button(9)
+                l_trigger = joystick.get_axis(4)
+                r_trigger = joystick.get_axis(5)
 
                 if beyond_deadzone(lx, ly):
-                    vel = math.floor(((ltrigger + 1) / 2.0) * 127)
+                    vel = math.floor(((l_trigger + 1) / 2.0) * 127)
                     noteIndex = convertXYtoDirection(lx, ly)
                     noteToPlay = notes[noteIndex]
+                    #play an octave up if the stick button is pushed in
+                    if l_stick_btn:
+                        noteToPlay = noteToPlay + 12
                     textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex])+" at velocity "+str(vel))
+                    if lastLeftHandNote != noteToPlay:
+                        outport.send(mido.Message('note_off', note=lastLeftHandNote))
+                        lastLeftHandNote = noteToPlay
                     outport.send(mido.Message('note_on', note=noteToPlay, velocity=vel))
-                # elif ltrigger < -0.999 or not beyond_deadzone(lx, ly):
-                #     outport.send(mido.Message('note_off'))#, velocity=vel))
+                else:
+                    outport.send(mido.Message('note_off', note=lastLeftHandNote))
                 #textPrint.tprint(screen, "Number of joysticks: {}".format("squelch"))
 
         lastJoystickCount = pygame.joystick.get_count()
     pygame.display.flip()
-    clock.tick(20)
+    clock.tick(15)
 
 outport.reset()
 outport.close()
