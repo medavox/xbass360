@@ -53,7 +53,8 @@ print(mido.get_output_names())
 
 deadzone_size = 0.4
 
-outport = mido.open_output(name='LoopBe Internal MIDI 1')
+outport = mido.open_output(name='loopMIDI Port 1')
+#outport = mido.open_output(name='LoopBe Internal MIDI 1')
 
 
 # Show program window.
@@ -126,7 +127,7 @@ screen.fill(WHITE)
 pygame.display.flip()
 # Main program loop.
 lastLeftHandNote = 0
-lastRightHandNote = -1
+lastRightHandNote = 0
 while not done:
 
     for event in pygame.event.get():
@@ -156,21 +157,33 @@ while not done:
                 l_trigger = joystick.get_axis(4)
                 r_trigger = joystick.get_axis(5)
 
+                noteIndex = convertXYtoDirection(lx, ly)
                 if beyond_deadzone(lx, ly):
+                    textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex]))
+                if l_stick_btn:
                     vel = math.floor(((l_trigger + 1) / 2.0) * 127)
-                    noteIndex = convertXYtoDirection(lx, ly)
-                    noteToPlay = notes[noteIndex]
-                    #play an octave up if the stick button is pushed in
-                    if l_stick_btn:
-                        noteToPlay = noteToPlay + 12
+                    noteToPlay = notes[noteIndex] +12
                     textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex])+" at velocity "+str(vel))
                     if lastLeftHandNote != noteToPlay:
-                        outport.send(mido.Message('note_off', note=lastLeftHandNote))
+                        outport.send(mido.Message('note_off', note=lastLeftHandNote, channel=2))
                         lastLeftHandNote = noteToPlay
-                    outport.send(mido.Message('note_on', note=noteToPlay, velocity=vel))
+                    outport.send(mido.Message('note_on', note=noteToPlay,  channel=2))#velocity=vel,
                 else:
-                    outport.send(mido.Message('note_off', note=lastLeftHandNote))
-                #textPrint.tprint(screen, "Number of joysticks: {}".format("squelch"))
+                    outport.send(mido.Message('note_off', note=lastLeftHandNote, channel=2))
+
+                RnoteIndex = convertXYtoDirection(rx, ry)
+                if beyond_deadzone(rx, ry):
+                    textPrint.tprint(screen, "playing note: "+str(noteNames[RnoteIndex]))
+                if r_stick_btn:
+                    vel = math.floor(((r_trigger + 1) / 2.0) * 127)
+                    noteToPlay = notes[RnoteIndex] +24
+                    textPrint.tprint(screen, "playing note: "+str(noteNames[RnoteIndex])+" at velocity "+str(vel))
+                    if lastRightHandNote != noteToPlay:
+                        outport.send(mido.Message('note_off', note=lastRightHandNote, channel=3))
+                        lastRightHandNote = noteToPlay
+                    outport.send(mido.Message('note_on', note=noteToPlay, channel=3))#velocity=vel, 
+                else:
+                    outport.send(mido.Message('note_off', note=lastRightHandNote, channel=3))
 
         lastJoystickCount = pygame.joystick.get_count()
     pygame.display.flip()
