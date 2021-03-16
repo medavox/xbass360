@@ -13,12 +13,34 @@ import mido
 import mido.backends.pygame
 import pygame
 
-# Determine config file location.
-if platform.system() == 'Windows':
-    config_dir = os.environ['LOCALAPPDATA']
-else:
-    config_dir = os.path.join(os.environ['HOME'], '.config')
+# Define some colors.
+BLACK = pygame.Color('black')
+WHITE = pygame.Color('white')
 
+
+# This is a simple class that will help us print to the screen.
+# It has nothing to do with the joysticks, just outputting the
+# information.
+class TextPrint(object):
+    def __init__(self):
+        self.reset()
+        self.font = pygame.font.Font(None, 20)
+
+    def tprint(self, screen, textString):
+        textBitmap = self.font.render(textString, True, BLACK)
+        screen.blit(textBitmap, (self.x, self.y))
+        self.y += self.line_height
+
+    def reset(self):
+        self.x = 10
+        self.y = 10
+        self.line_height = 15
+
+    def indent(self):
+        self.x += 10
+
+    def unindent(self):
+        self.x -= 10
 
 # Init pygame and set it as mido's MIDI backend.
 pygame.init()
@@ -30,28 +52,29 @@ playing_notes = []
 octave = 0
 playing = 0
 
-# Open output port.
-if port == '':
-    outport = mido.open_output()
-else:
-    outport = mido.open_output(port)
+
+outport = mido.open_output()
+
 
 # Show program window.
-screen = pygame.display.set_mode([320, 180])
+# Set the width and height of the screen (width, height).
+screen = pygame.display.set_mode((500, 700))
 pygame.display.set_caption("midiBox360")
 
-if os.path.isfile(logo):
-    logo = pygame.image.load(logo)
-    screen.blit(logo, (0,0))
-    pygame.display.flip()
 
-if pygame.joystick.get_count():
-    joystick = pygame.joystick.Joystick(joystick_id)
-    joystick.init()
 
+# Used to manage how fast the screen updates.
 clock = pygame.time.Clock()
 
+
+# Loop until the user clicks the close button.
 done = False
+
+# Initialize the joysticks.
+pygame.joystick.init()
+
+# Get ready to print.
+textPrint = TextPrint()
 
 #adapted from https://blackdoor.github.io/blog/thumbstick-controls/
 def getAngleFromXY(XAxisValue, YAxisValue):
@@ -93,43 +116,43 @@ def convertXYtoDirection(X, Y):
     # 0 = UP, 1 = UP-RIGHT, 2 = RIGHT ... 7 = UP-LEFT.
     return direction % sectors
 
+lastJoystickCount = 0
+joystick = None
 
+screen.fill(WHITE)
+pygame.display.flip()
 # Main program loop.
-while done==False:
+while not done:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done=True
 
-        lx = joystick.get_axis(0)
-        ly = joystick.get_axis(1)
-        rx = joystick.get_axis(2)
-        ry = joystick.get_axis(3)
-        leftStickAngle = 180 + math.atan2(ly, lx) / math.pi * 180
-        rightStickAngle = 180 +  math.atan2(ry, rx) / math.pi * 180
+        if pygame.joystick.get_count():
+            if not lastJoystickCount:
+                joystick = pygame.joystick.Joystick(0)
+                joystick.init()
+        
 
-        # Move base note up or down an octave/semitone.
-        if event.type == pygame.JOYHATMOTION:
-            if get_event(hat_up):
-                base_note = (base_note + 12) % 128
-            if get_event(hat_down):
-                base_note = (base_note - 12) % 128
-            if get_event(hat_left):
-                base_note = (base_note - 1) % 128
-            if get_event(hat_right):
-                base_note = (base_note + 1) % 128
-#midi note 21 (A0) is the lowest note in our range: a step below the low B on a 5-string bass
-        # Detect button presses.
-        if event.type == pygame.JOYBUTTONDOWN:
-        if event.type == pygame.JOYBUTTONUP:
-            if not root():
-                # Release all notes.
-                playing = False
-                while len(playing_notes) > 0:
-                    outport.send(mido.Message('note_off',
-                                channel=channel, note=playing_notes.pop()))
 
-    clock.tick(30)
+            #midi note 21 (A0) is the lowest note in our range: a step below the low B on a 5-string bass
+            notes = [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+            # Detect button presses.
+            if event.type == pygame.JOYAXISMOTION:
+                screen.fill(WHITE)
+                textPrint.reset()
+                lx = joystick.get_axis(0)
+                ly = joystick.get_axis(1)
+                rx = joystick.get_axis(2)
+                ry = joystick.get_axis(3)
+                rtrigger = joystick.get_axis(4)
+                ltrigger = joystick.get_axis(5)
+            
+                textPrint.tprint(screen, "Number of joysticks: {}".format("squelch"))
+
+        lastJoystickCount = pygame.joystick.get_count()
+    pygame.display.flip()
+    clock.tick(20)
 
 outport.reset()
 outport.close()
