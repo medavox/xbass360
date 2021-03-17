@@ -51,24 +51,21 @@ pygame.joystick.init()
 mido.set_backend('mido.backends.rtmidi')
 print(mido.get_output_names())
 
+#how far from the centre does the analogue stick have to be for it to count?
+#the controller I tested on had resting values of up to 0.26,
+#but higher values may also help reduce false positives when moving between notes
 deadzone_size = 0.4
 
 outport = mido.open_output(name='loopMIDI Port 1')
 #outport = mido.open_output(name='LoopBe Internal MIDI 1')
-
 
 # Show program window.
 # Set the width and height of the screen (width, height).
 screen = pygame.display.set_mode((500, 700))
 pygame.display.set_caption("xBass360")
 
-
-
 # Used to manage how fast the screen updates.
 clock = pygame.time.Clock()
-
-
-
 
 # Initialize the joysticks.
 pygame.joystick.init()
@@ -77,7 +74,7 @@ pygame.joystick.init()
 textPrint = TextPrint()
 
 #adapted from https://blackdoor.github.io/blog/thumbstick-controls/
-def getAngleFromXY(XAxisValue, YAxisValue):
+def getAngleFromXY(XAxisValue:float, YAxisValue:float) -> float:
 
     #Normally Atan2 takes Y,X, not X,Y.  We switch these around since we want 0
     # degrees to be straight up, not to the right like the unit circle;
@@ -94,7 +91,7 @@ def getAngleFromXY(XAxisValue, YAxisValue):
     return angleInDegrees
 
 #adapted from https://blackdoor.github.io/blog/thumbstick-controls/
-def convertXYtoDirection(X, Y):
+def convertXYtoDirection(x:float, y:float) -> int:
     sectors = 12
     #We have 12 sectors, so get the size of each in degrees.
     sectorSize = 360.0 / sectors
@@ -103,7 +100,7 @@ def convertXYtoDirection(X, Y):
     halfSectorSize = sectorSize / 2.0
 
     #First, get the angle using the function above
-    thumbstickAngle = getAngleFromXY(X, Y)
+    thumbstickAngle = getAngleFromXY(x, y)
 
     #Next, rotate our angle to match the offset of our sectors.
     convertedAngle = thumbstickAngle + halfSectorSize
@@ -116,8 +113,20 @@ def convertXYtoDirection(X, Y):
     # 0 = UP, 1 = UP-RIGHT, 2 = RIGHT ... 7 = UP-LEFT.
     return direction % sectors
 
-def beyond_deadzone(x, y):
+def beyond_deadzone(x:float, y:float) -> bool:
     return math.sqrt(x * x + y * y) > deadzone_size
+
+def faceButtonsToNumber(controller) -> int:
+    ret = 0
+    if controller.get_button(0):#a
+        ret = ret + 1
+    if controller.get_button(1):#b
+        ret = ret + 2
+    if controller.get_button(2):#x
+        ret = ret + 4
+    if controller.get_button(3):#y
+        ret = ret + 8
+    return ret
 
 lastJoystickCount = 0
 joystick = None
@@ -129,25 +138,99 @@ noteNames = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
 screen.fill(WHITE)
 pygame.display.flip()
 
-def faceButtonsToNumber():
-    ret = 0
-    if joystick.get_button(0):#a
-        ret = ret + 1
-    if joystick.get_button(1):#b
-        ret = ret + 2
-    if joystick.get_button(2):#x
-        ret = ret + 4
-    if joystick.get_button(3):#y
-        ret = ret + 8
-    return ret
-
 #the number is the facebutton bitfield (button combo) that needs to be pressed, and its index in this array is the same as the note that it corresponds to
 faceButtonsToNotes = [0, 1, 5, 4, 12, 8, 10, 2, 3, 7, 15, 14]
 lastLeftHandNote = 0
 lastRightHandNote = 0
 
-#functionChoice = "rotary"
-functionChoice = "face"
+def faces(event, joystick):
+    if event.type == pygame.JOYAXISMOTION or event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
+        screen.fill(WHITE)
+        textPrint.reset()
+        
+        lx = joystick.get_axis(0)
+        ly = joystick.get_axis(1)
+        rx = joystick.get_axis(2)
+        ry = joystick.get_axis(3)
+
+        l_bumper = joystick.get_button(4)
+        r_bumper = joystick.get_button(5)
+        l_stick_btn = joystick.get_button(8)
+        r_stick_btn = joystick.get_button(9)
+        l_trigger = joystick.get_axis(4)
+        r_trigger = joystick.get_axis(5)
+
+        combo = faceButtonsToNumber(controller)
+        if combo in faceButtonsToNotes:
+            noteIndex = faceButtonsToNotes.index(combo)
+            noteToPlay = notes[noteIndex]
+            vel = math.floor(((l_trigger + 1) / 2.0) * 127)
+            #play an octave up if the stick button is pushed in
+            if l_bumper:
+                noteToPlay = noteToPlay + 24
+            if r_bumper:
+                noteToPlay = noteToPlay + 12
+            textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex])+" at velocity "+str(vel))
+            if lastLeftHandNote != noteToPlay:
+                outport.send(mido.Message('note_off', note=lastLeftHandNote))
+                outport.send(mido.Message('control_change', control=7, value=vel))
+                lastLeftHandNote = noteToPlay
+            outport.send(mido.Message('note_on', note=noteToPlay, velocity=vel))
+
+def rotary(event, joystick):
+    if event.type == pygame.JOYAXISMOTION:
+        screen.fill(WHITE)
+        textPrint.reset()
+
+        lx = joystick.get_axis(0)
+        ly = joystick.get_axis(1)
+        rx = joystick.get_axis(2)
+        ry = joystick.get_axis(3)
+
+        l_bumper = joystick.get_button(4)
+        r_bumper = joystick.get_button(5)
+        l_stick_btn = joystick.get_button(8)
+        r_stick_btn = joystick.get_button(9)
+        l_trigger = joystick.get_axis(4)
+        r_trigger = joystick.get_axis(5)
+
+        noteIndex = convertXYtoDirection(lx, ly)
+        if beyond_deadzone(lx, ly):
+            textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex]))
+        if l_stick_btn:
+            vel = math.floor(((l_trigger + 1) / 2.0) * 127)
+            noteToPlay = notes[noteIndex] +12
+            textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex])+" at velocity "+str(vel))
+            if lastLeftHandNote != noteToPlay:
+                outport.send(mido.Message('note_off', note=lastLeftHandNote, channel=2))
+                lastLeftHandNote = noteToPlay
+            outport.send(mido.Message('note_on', note=noteToPlay,  channel=2))#velocity=vel,
+        else:
+            outport.send(mido.Message('note_off', note=lastLeftHandNote, channel=2))
+
+        RnoteIndex = convertXYtoDirection(rx, ry)
+        if beyond_deadzone(rx, ry):
+            textPrint.tprint(screen, "playing note: "+str(noteNames[RnoteIndex]))
+        if r_stick_btn:
+            vel = math.floor(((r_trigger + 1) / 2.0) * 127)
+            noteToPlay = notes[RnoteIndex] +24
+            textPrint.tprint(screen, "playing note: "+str(noteNames[RnoteIndex])+" at velocity "+str(vel))
+            if lastRightHandNote != noteToPlay:
+                outport.send(mido.Message('note_off', note=lastRightHandNote, channel=3))
+                lastRightHandNote = noteToPlay
+            outport.send(mido.Message('note_on', note=noteToPlay, channel=3))#velocity=vel, 
+        else:
+            outport.send(mido.Message('note_off', note=lastRightHandNote, channel=3))
+
+def drone_builder(event, joystick):
+    if event.type == pygame.JOYAXISMOTION or event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
+        screen.fill(WHITE)
+        textPrint.reset()
+
+
+
+functionChoice = "rotary"
+#functionChoice = "face"
 # Main program loop.
 # Loop until the user clicks the close button.
 done = False
@@ -160,75 +243,10 @@ while not done:
             if not lastJoystickCount:
                 joystick = pygame.joystick.Joystick(0)
                 joystick.init()
-            
-            if functionChoice == "rotary":
-                # Detect button presses.
-                if event.type == pygame.JOYAXISMOTION:
-                    screen.fill(WHITE)
-                    textPrint.reset()
-                    lx = joystick.get_axis(0)
-                    ly = joystick.get_axis(1)
-                    rx = joystick.get_axis(2)
-                    ry = joystick.get_axis(3)
-                    l_stick_btn = joystick.get_button(8)
-                    r_stick_btn = joystick.get_button(9)
-                    l_trigger = joystick.get_axis(4)
-                    r_trigger = joystick.get_axis(5)
 
-                    noteIndex = convertXYtoDirection(lx, ly)
-                    if beyond_deadzone(lx, ly):
-                        textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex]))
-                    if l_stick_btn:
-                        vel = math.floor(((l_trigger + 1) / 2.0) * 127)
-                        noteToPlay = notes[noteIndex] +12
-                        textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex])+" at velocity "+str(vel))
-                        if lastLeftHandNote != noteToPlay:
-                            outport.send(mido.Message('note_off', note=lastLeftHandNote, channel=2))
-                            lastLeftHandNote = noteToPlay
-                        outport.send(mido.Message('note_on', note=noteToPlay,  channel=2))#velocity=vel,
-                    else:
-                        outport.send(mido.Message('note_off', note=lastLeftHandNote, channel=2))
+                rotary(event, joystick)
+                faces(event, joystick)
 
-                    RnoteIndex = convertXYtoDirection(rx, ry)
-                    if beyond_deadzone(rx, ry):
-                        textPrint.tprint(screen, "playing note: "+str(noteNames[RnoteIndex]))
-                    if r_stick_btn:
-                        vel = math.floor(((r_trigger + 1) / 2.0) * 127)
-                        noteToPlay = notes[RnoteIndex] +24
-                        textPrint.tprint(screen, "playing note: "+str(noteNames[RnoteIndex])+" at velocity "+str(vel))
-                        if lastRightHandNote != noteToPlay:
-                            outport.send(mido.Message('note_off', note=lastRightHandNote, channel=3))
-                            lastRightHandNote = noteToPlay
-                        outport.send(mido.Message('note_on', note=noteToPlay, channel=3))#velocity=vel, 
-                    else:
-                        outport.send(mido.Message('note_off', note=lastRightHandNote, channel=3))
-
-            elif functionChoice == "face":
-            # Detect button presses.
-                if event.type == pygame.JOYAXISMOTION or event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
-                    screen.fill(WHITE)
-                    textPrint.reset()
-                    l_trigger = joystick.get_axis(4)
-                    r_trigger = joystick.get_axis(5)
-                    l_bumper = joystick.get_button(4)
-                    r_bumper = joystick.get_button(5)
-                    l_stick_btn = joystick.get_button(8)
-                    combo = faceButtonsToNumber()
-                    if combo in faceButtonsToNotes:
-                        noteIndex = faceButtonsToNotes.index(combo)
-                        noteToPlay = notes[noteIndex]
-                        vel = math.floor(((l_trigger + 1) / 2.0) * 127)
-                        #play an octave up if the stick button is pushed in
-                        if l_bumper:
-                            noteToPlay = noteToPlay + 24
-                        if r_bumper:
-                            noteToPlay = noteToPlay + 12
-                        textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex])+" at velocity "+str(vel))
-                        if lastLeftHandNote != noteToPlay:
-                            outport.send(mido.Message('note_off', note=lastLeftHandNote))
-                            outport.send(mido.Message('control_change', control=7, value=vel))
-                            lastLeftHandNote = noteToPlay
-                        outport.send(mido.Message('note_on', note=noteToPlay, velocity=vel))
     lastJoystickCount = pygame.joystick.get_count()
     pygame.display.flip()
     clock.tick(15)
