@@ -68,8 +68,7 @@ pygame.display.set_caption("xBass360")
 clock = pygame.time.Clock()
 
 
-# Loop until the user clicks the close button.
-done = False
+
 
 # Initialize the joysticks.
 pygame.joystick.init()
@@ -123,13 +122,36 @@ def beyond_deadzone(x, y):
 lastJoystickCount = 0
 joystick = None
 
+#midi note 21 (A0) is the lowest note in our range: a step below the low B on a 5-string bass
+notes = [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+noteNames = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+
 screen.fill(WHITE)
 pygame.display.flip()
-# Main program loop.
+
+def faceButtonsToNumber():
+    ret = 0
+    if joystick.get_button(0):#a
+        ret = ret + 1
+    if joystick.get_button(1):#b
+        ret = ret + 2
+    if joystick.get_button(2):#x
+        ret = ret + 4
+    if joystick.get_button(3):#y
+        ret = ret + 8
+    return ret
+
+#the number is the facebutton bitfield (button combo) that needs to be pressed, and its index in this array is the same as the note that it corresponds to
+faceButtonsToNotes = [0, 1, 5, 4, 12, 8, 10, 2, 3, 7, 15, 14]
 lastLeftHandNote = 0
 lastRightHandNote = 0
-while not done:
 
+#functionChoice = "rotary"
+functionChoice = "face"
+# Main program loop.
+# Loop until the user clicks the close button.
+done = False
+while not done:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done=True
@@ -138,54 +160,76 @@ while not done:
             if not lastJoystickCount:
                 joystick = pygame.joystick.Joystick(0)
                 joystick.init()
-        
+            
+            if functionChoice == "rotary":
+                # Detect button presses.
+                if event.type == pygame.JOYAXISMOTION:
+                    screen.fill(WHITE)
+                    textPrint.reset()
+                    lx = joystick.get_axis(0)
+                    ly = joystick.get_axis(1)
+                    rx = joystick.get_axis(2)
+                    ry = joystick.get_axis(3)
+                    l_stick_btn = joystick.get_button(8)
+                    r_stick_btn = joystick.get_button(9)
+                    l_trigger = joystick.get_axis(4)
+                    r_trigger = joystick.get_axis(5)
 
-
-            #midi note 21 (A0) is the lowest note in our range: a step below the low B on a 5-string bass
-            notes = [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
-            noteNames = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
-            # Detect button presses.
-            if event.type == pygame.JOYAXISMOTION:
-                screen.fill(WHITE)
-                textPrint.reset()
-                lx = joystick.get_axis(0)
-                ly = joystick.get_axis(1)
-                rx = joystick.get_axis(2)
-                ry = joystick.get_axis(3)
-                l_stick_btn = joystick.get_button(8)
-                r_stick_btn = joystick.get_button(9)
-                l_trigger = joystick.get_axis(4)
-                r_trigger = joystick.get_axis(5)
-
-                noteIndex = convertXYtoDirection(lx, ly)
-                if beyond_deadzone(lx, ly):
-                    textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex]))
-                if l_stick_btn:
-                    vel = math.floor(((l_trigger + 1) / 2.0) * 127)
-                    noteToPlay = notes[noteIndex] +12
-                    textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex])+" at velocity "+str(vel))
-                    if lastLeftHandNote != noteToPlay:
+                    noteIndex = convertXYtoDirection(lx, ly)
+                    if beyond_deadzone(lx, ly):
+                        textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex]))
+                    if l_stick_btn:
+                        vel = math.floor(((l_trigger + 1) / 2.0) * 127)
+                        noteToPlay = notes[noteIndex] +12
+                        textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex])+" at velocity "+str(vel))
+                        if lastLeftHandNote != noteToPlay:
+                            outport.send(mido.Message('note_off', note=lastLeftHandNote, channel=2))
+                            lastLeftHandNote = noteToPlay
+                        outport.send(mido.Message('note_on', note=noteToPlay,  channel=2))#velocity=vel,
+                    else:
                         outport.send(mido.Message('note_off', note=lastLeftHandNote, channel=2))
-                        lastLeftHandNote = noteToPlay
-                    outport.send(mido.Message('note_on', note=noteToPlay,  channel=2))#velocity=vel,
-                else:
-                    outport.send(mido.Message('note_off', note=lastLeftHandNote, channel=2))
 
-                RnoteIndex = convertXYtoDirection(rx, ry)
-                if beyond_deadzone(rx, ry):
-                    textPrint.tprint(screen, "playing note: "+str(noteNames[RnoteIndex]))
-                if r_stick_btn:
-                    vel = math.floor(((r_trigger + 1) / 2.0) * 127)
-                    noteToPlay = notes[RnoteIndex] +24
-                    textPrint.tprint(screen, "playing note: "+str(noteNames[RnoteIndex])+" at velocity "+str(vel))
-                    if lastRightHandNote != noteToPlay:
+                    RnoteIndex = convertXYtoDirection(rx, ry)
+                    if beyond_deadzone(rx, ry):
+                        textPrint.tprint(screen, "playing note: "+str(noteNames[RnoteIndex]))
+                    if r_stick_btn:
+                        vel = math.floor(((r_trigger + 1) / 2.0) * 127)
+                        noteToPlay = notes[RnoteIndex] +24
+                        textPrint.tprint(screen, "playing note: "+str(noteNames[RnoteIndex])+" at velocity "+str(vel))
+                        if lastRightHandNote != noteToPlay:
+                            outport.send(mido.Message('note_off', note=lastRightHandNote, channel=3))
+                            lastRightHandNote = noteToPlay
+                        outport.send(mido.Message('note_on', note=noteToPlay, channel=3))#velocity=vel, 
+                    else:
                         outport.send(mido.Message('note_off', note=lastRightHandNote, channel=3))
-                        lastRightHandNote = noteToPlay
-                    outport.send(mido.Message('note_on', note=noteToPlay, channel=3))#velocity=vel, 
-                else:
-                    outport.send(mido.Message('note_off', note=lastRightHandNote, channel=3))
 
-        lastJoystickCount = pygame.joystick.get_count()
+            elif functionChoice == "face":
+            # Detect button presses.
+                if event.type == pygame.JOYAXISMOTION or event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
+                    screen.fill(WHITE)
+                    textPrint.reset()
+                    l_trigger = joystick.get_axis(4)
+                    r_trigger = joystick.get_axis(5)
+                    l_bumper = joystick.get_button(4)
+                    r_bumper = joystick.get_button(5)
+                    l_stick_btn = joystick.get_button(8)
+                    combo = faceButtonsToNumber()
+                    if combo in faceButtonsToNotes:
+                        noteIndex = faceButtonsToNotes.index(combo)
+                        noteToPlay = notes[noteIndex]
+                        vel = math.floor(((l_trigger + 1) / 2.0) * 127)
+                        #play an octave up if the stick button is pushed in
+                        if l_bumper:
+                            noteToPlay = noteToPlay + 24
+                        if r_bumper:
+                            noteToPlay = noteToPlay + 12
+                        textPrint.tprint(screen, "playing note: "+str(noteNames[noteIndex])+" at velocity "+str(vel))
+                        if lastLeftHandNote != noteToPlay:
+                            outport.send(mido.Message('note_off', note=lastLeftHandNote))
+                            outport.send(mido.Message('control_change', control=7, value=vel))
+                            lastLeftHandNote = noteToPlay
+                        outport.send(mido.Message('note_on', note=noteToPlay, velocity=vel))
+    lastJoystickCount = pygame.joystick.get_count()
     pygame.display.flip()
     clock.tick(15)
 
