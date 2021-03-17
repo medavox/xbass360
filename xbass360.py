@@ -14,8 +14,9 @@ import mido.backends.pygame
 import pygame
 import math
 import rtmidi
-import common
+from common import TextPrint
 import control_schemes
+from control_schemes import *
 
 # Define some colors.
 BLACK = pygame.Color('black')
@@ -58,7 +59,7 @@ pygame.display.flip()
 lastLeftHandNote = 0
 lastRightHandNote = 0
 
-control_scheme = control_schemes.DroneBuilder()
+control_scheme = DroneBuilder(screen, textPrint, outport)
 
 # Main program loop.
 # Loop until the user clicks the close button.
@@ -74,7 +75,7 @@ while not done:
                 joystick.init()
                 
                 #rotary(event, joystick)
-            drone_builder(event, joystick, screen)
+            control_scheme.process_event(event, joystick)
 
     lastJoystickCount = pygame.joystick.get_count()
     pygame.display.flip()

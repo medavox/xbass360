@@ -16,7 +16,7 @@ class ControllerScheme(object):
     def process_event(self, event, joystick):
         pass
 
-    def __init__(self, screen, textPrint, outputport:mido.ports.BaseOutput):
+    def __init__(self, screen, textPrint:TextPrint, outputport:mido.ports.BaseOutput):
         self.screen = screen
         self.textPrint = textPrint
         self.outport = outputport
@@ -27,7 +27,7 @@ class Faces(ControllerScheme):
     #the number is the facebutton bitfield (button combo) that needs to be pressed, and its index in this array is the same as the note that it corresponds to
     faceButtonsToNotes = [0, 1, 5, 4, 12, 8, 10, 2, 3, 7, 15, 14]
 
-    def __init__(self, screen, textPrint, outputport: mido.ports.BaseOutput):
+    def __init__(self, screen, textPrint:TextPrint, outputport: mido.ports.BaseOutput):
         super().__init__(screen, textPrint, outputport)
         self.lastPlayedNote = 0
 
@@ -80,7 +80,7 @@ class Faces(ControllerScheme):
 
 class Rotary(ControllerScheme):
 
-    def __init__(self, screen, textPrint, outputport: mido.ports.BaseOutput):
+    def __init__(self, screen, textPrint:TextPrint, outputport: mido.ports.BaseOutput):
         super().__init__(screen, textPrint, outputport)
         self.lastLeftHandNote = 0
         self.lastRightHandNote = 0
@@ -133,8 +133,10 @@ class Rotary(ControllerScheme):
 
 class DroneBuilder(ControllerScheme):
     textPrint = None
-    def __init__(self, tp:TextPrint, outport):
-        self.textPrint = tp
+
+    def __init__(self, screen, textPrint:TextPrint, outputport: mido.ports.BaseOutput):
+        super().__init__(screen, textPrint, outputport)
+        self.lastPlayedNote = 0
 
     def process_event(self, event, joystick):
         if event.type == pygame.JOYAXISMOTION or event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
@@ -146,9 +148,9 @@ class DroneBuilder(ControllerScheme):
                 # l_trigger = axis 4
                 vel = math.floor(((joystick.get_axis(4) + 1) / 2.0) * 127)
                 self.textPrint.tprint(self.screen, "playing note: "+str(noteToPlay)+" at velocity "+str(vel))
-                if self.lastRightHandNote != noteToPlay:
-                    self.outport.send(mido.Message('note_off', note=self.lastRightHandNote, channel=3))
-                    self.lastRightHandNote = noteToPlay
+                if self.lastPlayedNote != noteToPlay:
+                    self.outport.send(mido.Message('note_off', note=self.lastPlayedNote, channel=3))
+                    self.lastPlayedNote = noteToPlay
                     self.outport.send(mido.Message('note_on', note=noteToPlay, channel=3, velocity=0))
                 self.outport.send(mido.Message('control_change', control=7, channel=3, value=vel))
 
