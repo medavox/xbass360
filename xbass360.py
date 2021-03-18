@@ -64,10 +64,20 @@ control_scheme = DroneBuilder(screen, textPrint, outport)
 # Main program loop.
 # Loop until the user clicks the close button.
 done = False
+
+# only allow specific types of events onto the queue
+pygame.event.set_blocked(None)
+pygame.event.set_allowed([pygame.QUIT,
+                          pygame.JOYBUTTONDOWN,
+                          pygame.JOYBUTTONUP,
+                          pygame.JOYAXISMOTION,
+                          pygame.JOYHATMOTION])
 while not done:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            done=True
+            done = True
+        #if event.type == pygame.JOYBUTTONDOWN:
+        #    print("button down:"+event.button)
 
         if pygame.joystick.get_count():
             if not lastJoystickCount:

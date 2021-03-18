@@ -139,16 +139,22 @@ class DroneBuilder(ControllerScheme):
         super().__init__(screen, textPrint, outputport)
         self.lastPlayedNote = 0
         self.lastVelocity = -1
+        self.octave_harmony = False
+        self.fifth_harmony = False
 
     def process_event(self, event, joystick):
         if event.type == pygame.JOYAXISMOTION or event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
+            self.octave_harmony = joystick.get_button(6)
+            self.fifth_harmony = joystick.get_button(7)
+
             #self.outport.send(mido.Message('control_change', control=11, value=1, channel=3))
             self.screen.fill(WHITE)
             self.textPrint.reset()
             self.textPrint.tprint(self.screen, "squelch")
             noteToPlay = self.buttonsToMidiNotes.get(self.buttonsToNumber(joystick))
-            vel = int(math.floor(((joystick.get_axis(5) + 1) / -2.0) * 127) + 127)
-            if vel != self.lastVelocity:
+            #axis 1 = left stick Y
+            vel = int(math.floor(((joystick.get_axis(1) + 1) / -2.0) * 127) + 127)
+            if vel != self.lastVelocity and common.beyond_deadzone(0.9, joystick.get_axis(0), joystick.get_axis(1)):
                 print("velocity "+str(vel))
                 self.lastVelocity = vel
                 self.outport.send(mido.Message('control_change', channel=3, control=11, value=vel))
@@ -161,14 +167,15 @@ class DroneBuilder(ControllerScheme):
                     self.lastPlayedNote = noteToPlay
                     print("playing note: "+str(noteToPlay)+" at velocity "+str(vel))
                     self.outport.send(mido.Message('note_on', note=noteToPlay, channel=3, velocity=120))
-
+                    if self.octave_harmony:
+                        self.outport.send(mido.Message('note_on', note=noteToPlay, channel=3, velocity=120))
                 #print("trigger "+str(joystick.get_axis(5)))
 
-            else:
+            elif not joystick.get_button(4):#only release notes when left bumper isn't pressed down
                 self.outport.send(mido.Message('note_off', note=self.lastPlayedNote, channel=3))
                 self.lastPlayedNote = 0
 
-    def buttonsToNumber(self, controller:pygame.joystick.Joystick) -> int:
+    def buttonsToNumber(self, controller: pygame.joystick.Joystick) -> int:
         ret = 0
         if controller.get_button(0):#a
             ret = ret + 1
@@ -178,7 +185,7 @@ class DroneBuilder(ControllerScheme):
             ret = ret + 4
         if controller.get_button(3):#y
             ret = ret + 8
-        if controller.get_button(4):#left bumper
+        if controller.get_button(5):#right bumper
             ret = ret + 16
         return ret
 
@@ -201,3 +208,6 @@ class DroneBuilder(ControllerScheme):
         18: 34,# b   = A#*
         19: 35 # a+b = B*
     }
+
+    def octave_select(self, controller: pygame.joystick.Joystick) -> int:
+        hat = controller.get_hat(0)
