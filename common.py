@@ -78,5 +78,5 @@ def convertXYtoDirection(x: float, y: float) -> int:
     return direction % sectors
 
 
-def beyond_deadzone(x: float, y: float) -> bool:
-    return math.sqrt(x * x + y * y) > deadzone_size
+def beyond_deadzone(deadzone, x: float, y: float) -> bool:
+    return math.sqrt(x * x + y * y) > deadzone

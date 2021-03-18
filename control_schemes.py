@@ -11,6 +11,7 @@ WHITE = pygame.Color('white')
 #midi note 21 (A0) is the lowest note in our range: a step below the low B on a 5-string bass
 notes = [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
 noteNames = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+deadzone = 0.4
 
 class ControllerScheme(object):
     def process_event(self, event, joystick):
@@ -103,7 +104,7 @@ class Rotary(ControllerScheme):
             r_trigger = joystick.get_axis(5)
 
             noteIndex = common.convertXYtoDirection(lx, ly)
-            if common.beyond_deadzone(lx, ly):
+            if common.beyond_deadzone(deadzone, lx, ly):
                 self.textPrint.tprint(self.screen, "playing note: "+str(noteNames[noteIndex]))
             if l_stick_btn:
                 vel = math.floor(((l_trigger + 1) / 2.0) * 127)
@@ -117,7 +118,7 @@ class Rotary(ControllerScheme):
                 self.outport.send(mido.Message('note_off', note=self.lastLeftHandNote, channel=2))
 
             RnoteIndex = common.convertXYtoDirection(rx, ry)
-            if common.beyond_deadzone(rx, ry):
+            if common.beyond_deadzone(deadzone, rx, ry):
                 self.textPrint.tprint(self.screen, "playing note: "+str(noteNames[RnoteIndex]))
             if r_stick_btn:
                 vel = math.floor(((r_trigger + 1) / 2.0) * 127)
@@ -137,22 +138,35 @@ class DroneBuilder(ControllerScheme):
     def __init__(self, screen, textPrint:TextPrint, outputport: mido.ports.BaseOutput):
         super().__init__(screen, textPrint, outputport)
         self.lastPlayedNote = 0
+        self.lastVelocity = -1
 
     def process_event(self, event, joystick):
         if event.type == pygame.JOYAXISMOTION or event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
+            #self.outport.send(mido.Message('control_change', control=11, value=1, channel=3))
             self.screen.fill(WHITE)
             self.textPrint.reset()
             self.textPrint.tprint(self.screen, "squelch")
             noteToPlay = self.buttonsToMidiNotes.get(self.buttonsToNumber(joystick))
+            vel = int(math.floor(((joystick.get_axis(5) + 1) / -2.0) * 127) + 127)
+            if vel != self.lastVelocity:
+                print("velocity "+str(vel))
+                self.lastVelocity = vel
+                self.outport.send(mido.Message('control_change', channel=3, control=11, value=vel))
             if noteToPlay is not None:
-                # l_trigger = axis 4
-                vel = math.floor(((joystick.get_axis(4) + 1) / 2.0) * 127)
-                self.textPrint.tprint(self.screen, "playing note: "+str(noteToPlay)+" at velocity "+str(vel))
+                # axis 4 = right trigger
+
+                self.textPrint.tprint(self.screen, "playing note: "+str(noteToPlay))
                 if self.lastPlayedNote != noteToPlay:
                     self.outport.send(mido.Message('note_off', note=self.lastPlayedNote, channel=3))
                     self.lastPlayedNote = noteToPlay
-                    self.outport.send(mido.Message('note_on', note=noteToPlay, channel=3, velocity=0))
-                self.outport.send(mido.Message('control_change', control=7, channel=3, value=vel))
+                    print("playing note: "+str(noteToPlay)+" at velocity "+str(vel))
+                    self.outport.send(mido.Message('note_on', note=noteToPlay, channel=3, velocity=120))
+
+                #print("trigger "+str(joystick.get_axis(5)))
+
+            else:
+                self.outport.send(mido.Message('note_off', note=self.lastPlayedNote, channel=3))
+                self.lastPlayedNote = 0
 
     def buttonsToNumber(self, controller:pygame.joystick.Joystick) -> int:
         ret = 0
