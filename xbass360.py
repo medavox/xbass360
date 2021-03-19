@@ -76,8 +76,6 @@ while not done:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True
-        #if event.type == pygame.JOYBUTTONDOWN:
-        #    print("button down:"+event.button)
 
         if pygame.joystick.get_count():
             if not lastJoystickCount:
@@ -89,7 +87,7 @@ while not done:
 
     lastJoystickCount = pygame.joystick.get_count()
     pygame.display.flip()
-    clock.tick(15)
+    clock.tick(40)
 
 outport.reset()
 outport.close()

@@ -4,6 +4,7 @@ import pygame.joystick
 from common import TextPrint
 import mido
 import math
+import enum
 
 BLACK = pygame.Color('black')
 WHITE = pygame.Color('white')
@@ -132,62 +133,153 @@ class Rotary(ControllerScheme):
                 self.outport.send(mido.Message('note_off', note=self.lastRightHandNote, channel=3))
 
 
+class Buttons(enum.IntEnum):
+    A    = 0
+    B    = 1
+    X    = 2
+    Y    = 3
+    LB   = 4
+    RB   = 5
+    BACK = 6
+    START= 7
+    LS   = 8
+    RS   = 9
+    GUIDE=10
+
+
+class Axes(enum.IntEnum):
+    LX = 0
+    LY = 1
+    RX = 2
+    RY = 3
+    LT = 4
+    RT = 5
+
+
 class DroneBuilder(ControllerScheme):
     textPrint = None
 
     def __init__(self, screen, textPrint:TextPrint, outputport: mido.ports.BaseOutput):
         super().__init__(screen, textPrint, outputport)
         self.lastPlayedNote = 0
-        self.lastVelocity = -1
+        self.expression = 0
         self.octave_harmony = False
         self.fifth_harmony = False
+        self.playing_note = None
+        self.octave_select = 0
 
     def process_event(self, event, joystick):
-        if event.type == pygame.JOYAXISMOTION or event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
-            self.octave_harmony = joystick.get_button(6)
-            self.fifth_harmony = joystick.get_button(7)
+        self.screen.fill(WHITE)
+        self.textPrint.reset()
+        #each event can only be one of these, so ordering doesn't matter
+        if event.type == pygame.JOYAXISMOTION:
+            self.on_axis_motion(joystick, event.axis, event.value)
+        elif event.type == pygame.JOYBUTTONDOWN:
+            self.on_button_down(joystick, event.button)
+        elif event.type == pygame.JOYBUTTONUP:
+            self.on_button_up(joystick, event.button)
+        elif event.type == pygame.JOYHATMOTION:
+            self.on_hat_motion(joystick, event.hat, event.value)
 
-            #self.outport.send(mido.Message('control_change', control=11, value=1, channel=3))
-            self.screen.fill(WHITE)
-            self.textPrint.reset()
-            self.textPrint.tprint(self.screen, "squelch")
-            noteToPlay = self.buttonsToMidiNotes.get(self.buttonsToNumber(joystick))
-            #axis 1 = left stick Y
-            vel = int(math.floor(((joystick.get_axis(1) + 1) / -2.0) * 127) + 127)
-            if vel != self.lastVelocity and common.beyond_deadzone(0.9, joystick.get_axis(0), joystick.get_axis(1)):
+
+    def release_note(self): # release the note (and its harmonies) that was playing, if there was any
+        if self.playing_note is not None: # if a note was already playing, stop it
+            print("playing "+str(self.playing_note+(self.octave_select * 12)))
+            self.outport.send(mido.Message('note_off', note=self.playing_note+(self.octave_select * 12), channel=3))
+
+            if self.octave_harmony: # stop the octave harmony if that's activated
+                self.outport.send(mido.Message('note_off', note=self.playing_note+12+(self.octave_select * 12), channel=3))
+
+            if self.fifth_harmony: # stop the fifth harmony if that's activated
+                self.outport.send(mido.Message('note_off', note=self.playing_note+7+(self.octave_select * 12),  channel=3))
+            self.playing_note = None
+
+    def play_note(self, new_note):
+        # start a new note
+        self.playing_note = new_note
+        self.outport.send(mido.Message('note_on', note=new_note+(self.octave_select * 12), channel=3, velocity=120))
+        if self.octave_harmony: # play the octave harmony is activated
+            self.outport.send(mido.Message('note_on', note=new_note+12+(self.octave_select * 12), channel=3, velocity=120))
+        if self.fifth_harmony:# # play the fifth harmony is activated
+            self.outport.send(mido.Message('note_on', note=new_note+7+(self.octave_select * 12), channel=3, velocity=120))
+
+
+    def on_button_down(self, joystick, button_number):
+        if button_number == Buttons.START:
+            self.fifth_harmony = True
+            return
+
+        if button_number == Buttons.BACK:
+            self.octave_harmony = True
+            return
+
+        new_note = self.buttonsToMidiNotes.get(self.buttonsToNumber(joystick))
+        if new_note is not None and new_note != self.playing_note: # if the new button combo is a note, and the note changed
+            self.release_note()
+            self.play_note(new_note) # play that note
+
+
+
+
+    def on_button_up(self, joystick, button_number):
+        if button_number == Buttons.START:
+            self.fifth_harmony = False
+            return
+        if button_number == Buttons.BACK:
+            self.octave_harmony = False
+            return
+        #notelock (not sending not_off when LB is held down)
+        #MUST be processed here, where we know which button was just released.
+        # so to be consistent, it makes sense to have all the midi command called i nthese methods
+        new_note = self.buttonsToMidiNotes.get(self.buttonsToNumber(joystick))
+        if new_note is None and not joystick.get_button(Buttons.LB) and button_number != Buttons.LB: # if LB isn't depressed and there was already a note playing AND the button being released isn't the hold button itself, release that note
+            self.release_note()
+
+    def on_axis_motion(self, joystick, axis, value):
+        # axis 1 = left stick Y
+        #use the position of the left stick's Y axis as expression, but only if the stick is >90% from centre
+        if axis == Axes.LY:
+            vel = int(math.floor(((value + 1) / -2.0) * 127) + 127)
+            if vel != self.expression and common.beyond_deadzone(0.9, joystick.get_axis(Axes.LX), joystick.get_axis(Axes.LY)):
                 print("velocity "+str(vel))
-                self.lastVelocity = vel
-                self.outport.send(mido.Message('control_change', channel=3, control=11, value=vel))
-            if noteToPlay is not None:
-                # axis 4 = right trigger
+                self.expression = vel
+                self.outport.send(mido.Message('control_change', channel=3, control=11, value=self.expression))
 
-                self.textPrint.tprint(self.screen, "playing note: "+str(noteToPlay))
-                if self.lastPlayedNote != noteToPlay:
-                    self.outport.send(mido.Message('note_off', note=self.lastPlayedNote, channel=3))
-                    self.lastPlayedNote = noteToPlay
-                    print("playing note: "+str(noteToPlay)+" at velocity "+str(vel))
-                    self.outport.send(mido.Message('note_on', note=noteToPlay, channel=3, velocity=120))
-                    if self.octave_harmony:
-                        self.outport.send(mido.Message('note_on', note=noteToPlay, channel=3, velocity=120))
-                #print("trigger "+str(joystick.get_axis(5)))
 
-            elif not joystick.get_button(4):#only release notes when left bumper isn't pressed down
-                self.outport.send(mido.Message('note_off', note=self.lastPlayedNote, channel=3))
-                self.lastPlayedNote = 0
+
+    def on_hat_motion(self, joystick, hat, value):
+        octave = self.octave_map.get(value)
+        if octave is not None:
+            if octave != self.octave_select:
+                self.release_note()
+                self.octave_select = octave
+                self.play_note(self.playing_note) # but with the new octave
+            else:
+                self.octave_select = octave
+
 
     def buttonsToNumber(self, controller: pygame.joystick.Joystick) -> int:
         ret = 0
-        if controller.get_button(0):#a
+        if controller.get_button(Buttons.A):
             ret = ret + 1
-        if controller.get_button(1):#b
+        if controller.get_button(Buttons.B):
             ret = ret + 2
-        if controller.get_button(2):#x
+        if controller.get_button(Buttons.X):
             ret = ret + 4
-        if controller.get_button(3):#y
+        if controller.get_button(Buttons.Y):
             ret = ret + 8
-        if controller.get_button(5):#right bumper
+        if controller.get_button(Buttons.RB):
             ret = ret + 16
         return ret
+
+    #up and right are positive
+    #(x,y)
+    octave_map = {
+        (1, 0): 0,
+        (0, -1): 1,
+        (-1, 0): 2,
+        (0, 1):  3
+    }
 
     buttonsToMidiNotes = {
         1 : 21,# a   = A
@@ -208,6 +300,20 @@ class DroneBuilder(ControllerScheme):
         18: 34,# b   = A#*
         19: 35 # a+b = B*
     }
+#how about we treat it like the gamespeak from abes odyssey
+#L1, L2, R1, R2 are each held as toggles
+# press a face button while holding a shoulder button to ring a note
+# the shoulder button is the 'pluck' that activates teh noet;
+# this leave th possibility of an extra 'open' note sounidng when you press a shoulder button without also presssing a face button
+# 16 possibilities
+#4 groups of 4 (or 5 if you include the open note)
 
-    def octave_select(self, controller: pygame.joystick.Joystick) -> int:
-        hat = controller.get_hat(0)
+#get logical state (convert axis data to expression)
+#check if different from last state
+#if so, cancel previous state
+# initiate new state
+
+#what about playing new notes over sustained existing ones?
+# might need a (set/stack/queue) of sustained notes
+
+##or.... the sustain idea might have to go
