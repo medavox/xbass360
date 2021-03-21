@@ -167,6 +167,7 @@ class DroneBuilder(ControllerScheme):
         self.fifth_harmony = False
         self.playing_note = None
         self.octave_select = 0
+        self.state_changed = False
 
     def process_event(self, event, joystick):
         self.screen.fill(WHITE)
@@ -174,16 +175,25 @@ class DroneBuilder(ControllerScheme):
         #each event can only be one of these, so ordering doesn't matter
         if event.type == pygame.JOYAXISMOTION:
             self.on_axis_motion(joystick, event.axis, event.value)
-        elif event.type == pygame.JOYBUTTONDOWN:
-            self.on_button_down(joystick, event.button)
-        elif event.type == pygame.JOYBUTTONUP:
-            self.on_button_up(joystick, event.button)
+        elif event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
+            self.on_button_change(joystick, event.button, event.type == pygame.JOYBUTTONDOWN)
         elif event.type == pygame.JOYHATMOTION:
             self.on_hat_motion(joystick, event.hat, event.value)
+        self.consider_state_change(joystick)
+
+    def consider_state_change(self, joystick):
+        if self.state_changed:
+            if self.playing_note is not None:
+                self.release_note()
+            new_note = self.buttonsToMidiNotes.get(self.buttonsToNumber(joystick))
+            if new_note is not None:
+                self.play_note(new_note)
+                self.state_changed = False
+            #else:  # new note is None - all notes should be released,
 
 
     def release_note(self): # release the note (and its harmonies) that was playing, if there was any
-        if self.playing_note is not None: # if a note was already playing, stop it
+        if self.playing_note is not None:  # if a note was already playing, stop it
             print("playing "+str(self.playing_note+(self.octave_select * 12)))
             self.outport.send(mido.Message('note_off', note=self.playing_note+(self.octave_select * 12), channel=3))
 
@@ -196,48 +206,44 @@ class DroneBuilder(ControllerScheme):
 
     def play_note(self, new_note):
         # start a new note
-        self.playing_note = new_note
+        if new_note != self.playing_note:
+            self.playing_note = new_note
         self.outport.send(mido.Message('note_on', note=new_note+(self.octave_select * 12), channel=3, velocity=120))
         if self.octave_harmony: # play the octave harmony is activated
             self.outport.send(mido.Message('note_on', note=new_note+12+(self.octave_select * 12), channel=3, velocity=120))
         if self.fifth_harmony:# # play the fifth harmony is activated
             self.outport.send(mido.Message('note_on', note=new_note+7+(self.octave_select * 12), channel=3, velocity=120))
 
+    def on_button_change(self, joystick, button_number, falseUpTrueDown:bool):
+        print("button number: "+str(button_number))
+        if button_number == Buttons.START and falseUpTrueDown:
+            self.fifth_harmony = not self.fifth_harmony
+            print("fifth harmony "+("ENABLED" if self.fifth_harmony else "DISABLED"))
+            if not self.fifth_harmony:
+                self.outport.send(mido.Message('note_off', note=self.playing_note+7+(self.octave_select * 12),  channel=3))
+            else:
+                self.state_changed = True
 
-    def on_button_down(self, joystick, button_number):
-        if button_number == Buttons.START:
-            self.fifth_harmony = True
-            return
-
-        if button_number == Buttons.BACK:
-            self.octave_harmony = True
-            return
-
+        if button_number == Buttons.BACK and falseUpTrueDown:
+            self.octave_harmony = not self.octave_harmony
+            print("octave harmony "+("ENABLED" if self.octave_harmony else "DISABLED"))
+            if not self.octave_harmony:
+                self.outport.send(mido.Message('note_off', note=self.playing_note+12+(self.octave_select * 12), channel=3))
+            else:
+                self.state_changed = True
+        # notelock (not sending note_off when LB is held down) MUST be processed here,
+        # where we know which button was just released.
+        # so to be consistent, it makes sense to have all the midi command called in these methods
         new_note = self.buttonsToMidiNotes.get(self.buttonsToNumber(joystick))
-        if new_note is not None and new_note != self.playing_note: # if the new button combo is a note, and the note changed
-            self.release_note()
-            self.play_note(new_note) # play that note
-
-
-
-
-    def on_button_up(self, joystick, button_number):
-        if button_number == Buttons.START:
-            self.fifth_harmony = False
-            return
-        if button_number == Buttons.BACK:
-            self.octave_harmony = False
-            return
-        #notelock (not sending not_off when LB is held down)
-        #MUST be processed here, where we know which button was just released.
-        # so to be consistent, it makes sense to have all the midi command called i nthese methods
-        new_note = self.buttonsToMidiNotes.get(self.buttonsToNumber(joystick))
-        if new_note is None and not joystick.get_button(Buttons.LB) and button_number != Buttons.LB: # if LB isn't depressed and there was already a note playing AND the button being released isn't the hold button itself, release that note
-            self.release_note()
+        if new_note != self.playing_note:
+            self.state_changed = True
+        # if LB isn't depressed and there was already a note playing AND the button being released isn't the hold button itself, release that note
+        #if self.playing_note is not None and not joystick.get_button(Buttons.LB) and button_number != Buttons.LB and falseUpTrueDown is False:
+        #    self.release_note()
 
     def on_axis_motion(self, joystick, axis, value):
         # axis 1 = left stick Y
-        #use the position of the left stick's Y axis as expression, but only if the stick is >90% from centre
+        # use the position of the left stick's Y axis as expression, but only if the stick is >90% from centre
         if axis == Axes.LY:
             vel = int(math.floor(((value + 1) / -2.0) * 127) + 127)
             if vel != self.expression and common.beyond_deadzone(0.9, joystick.get_axis(Axes.LX), joystick.get_axis(Axes.LY)):
@@ -245,18 +251,13 @@ class DroneBuilder(ControllerScheme):
                 self.expression = vel
                 self.outport.send(mido.Message('control_change', channel=3, control=11, value=self.expression))
 
-
-
     def on_hat_motion(self, joystick, hat, value):
         octave = self.octave_map.get(value)
         if octave is not None:
             if octave != self.octave_select:
                 self.release_note()
                 self.octave_select = octave
-                self.play_note(self.playing_note) # but with the new octave
-            else:
-                self.octave_select = octave
-
+                self.state_changed = True
 
     def buttonsToNumber(self, controller: pygame.joystick.Joystick) -> int:
         ret = 0
