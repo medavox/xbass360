@@ -60,7 +60,7 @@ class DroneBuilder(ControllerScheme):
     def process_event(self, event, joystick):
         self.screen.fill(WHITE)
         self.textPrint.reset()
-        #each event can only be one of these, so ordering doesn't matter
+        # each event can only be one of these, so ordering doesn't matter
         if event.type == pygame.JOYAXISMOTION:
             self.on_axis_motion(joystick, event.axis, event.value)
         elif event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
@@ -77,8 +77,7 @@ class DroneBuilder(ControllerScheme):
             if new_note is not None:
                 self.play_note(new_note)
                 self.state_changed = False
-            #else:  # new note is None - all notes should be released,
-
+            # else:  # new note is None - all notes should be released,
 
     def release_note(self): # release the note (and its harmonies) that was playing, if there was any
         if self.playing_note is not None:  # if a note was already playing, stop it
@@ -138,6 +137,8 @@ class DroneBuilder(ControllerScheme):
                 print("velocity "+str(vel))
                 self.expression = vel
                 self.outport.send(mido.Message('control_change', channel=3, control=11, value=self.expression))
+        elif axis == Axes.RT or axis == Axes.LT:
+            self.on_button_change(joystick, 9999, value > -0.9)
 
     def on_hat_motion(self, joystick, hat, value):
         octave = self.octave_map.get(value)
@@ -157,8 +158,14 @@ class DroneBuilder(ControllerScheme):
             ret = ret + 4
         if controller.get_button(Buttons.Y):
             ret = ret + 8
-        if controller.get_button(Buttons.RB):
+        if controller.get_button(Buttons.LB):
             ret = ret + 16
+        if controller.get_axis(Axes.LT) > -0.9:
+            ret = ret + 32
+        if controller.get_button(Buttons.RB):
+            ret = ret + 64
+        if controller.get_axis(Axes.RT) > -0.9:
+            ret = ret + 128
         return ret
 
     #up and right are positive
@@ -171,23 +178,29 @@ class DroneBuilder(ControllerScheme):
     }
 
     buttonsToMidiNotes = {
-        1 : 21,# a   = A
-        5 : 22,# a+x = A#
-        4 : 23,# x   = B
-        12: 24,# x+y = C
-        8 : 25,# y   = C#
-        10: 26,# y+b = D
-        2 : 27,# b   = D#
-        3 : 28,# a+b = E
-        #with LB
-        17: 28,# a   = E (same E)
-        21: 29,# a+x = F
-        20: 30,#x    = F#
-        28: 31,#x+y  = G
-        24: 32,# y   = G#
-        26: 33,# y+b = A*(Octave)
-        18: 34,# b   = A#*
-        19: 35 # a+b = B*
+        16 : 21,# LB     = A
+        17 : 22,# LB+A   = A#
+        20 : 23,# LB+X   = B
+        24 : 24,# LB+Y   = C
+        18 : 25,# LB+B   = C#
+
+        32 : 26,# LT     = D
+        33 : 27,# LT+A   = D#
+        36 : 28,# LT+X   = E
+        40 : 29,# LT+Y   = F
+        34 : 30,# LT+B   = F#
+
+        64: 31,# RB      = G
+        65: 32,# RB+A    = G#
+        68: 33,# RB+X    = A
+        72: 34,# RB+Y    = A#
+        66: 35,# RB+B   =  B
+
+        128: 36,# RT    =  C
+        129: 37,# RT+A  =  C#
+        132: 38,# RT+X  =  D
+        136: 39,# RT+Y  =  D#
+        130: 40 # RT+B  =  E
     }
 #how about we treat it like the gamespeak from abes odyssey
 #L1, L2, R1, R2 are each held as toggles
