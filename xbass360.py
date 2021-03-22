@@ -71,18 +71,20 @@ pygame.event.set_allowed([pygame.QUIT,
                           pygame.JOYBUTTONDOWN,
                           pygame.JOYBUTTONUP,
                           pygame.JOYAXISMOTION,
-                          pygame.JOYHATMOTION])
+                          pygame.JOYHATMOTION,
+                          pygame.JOYDEVICEADDED,
+                          pygame.JOYDEVICEREMOVED])
 while not done:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True
+        elif event.type == pygame.JOYDEVICEADDED:
+            joystick = pygame.joystick.Joystick(0)
+            joystick.init()
+        elif event.type == pygame.JOYDEVICEREMOVED:
+            joystick = None
 
-        if pygame.joystick.get_count():
-            if not lastJoystickCount:
-                joystick = pygame.joystick.Joystick(0)
-                joystick.init()
-                
-                #rotary(event, joystick)
+        if joystick is not None:
             control_scheme.process_event(event, joystick)
 
     lastJoystickCount = pygame.joystick.get_count()

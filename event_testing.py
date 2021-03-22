@@ -56,12 +56,14 @@ pygame.event.set_allowed([pygame.QUIT,
                           pygame.JOYBUTTONDOWN,
                           pygame.JOYBUTTONUP,
                           pygame.JOYAXISMOTION,
-                          pygame.JOYHATMOTION])
+                          pygame.JOYHATMOTION,
+                          pygame.JOYDEVICEADDED,
+                          pygame.JOYDEVICEREMOVED])
 while not done:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True
-
+        print("controllers: "+str(pygame.joystick.get_count()))
         if pygame.JOYAXISMOTION == event.type:
             print("axis "+str(event.axis)+" motion: "+str(event.value))
         elif pygame.JOYHATMOTION == event.type:
@@ -74,7 +76,6 @@ while not done:
             if not lastJoystickCount:
                 joystick = pygame.joystick.Joystick(0)
                 joystick.init()
-
             pass
 
     lastJoystickCount = pygame.joystick.get_count()
