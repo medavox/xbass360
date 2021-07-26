@@ -1,13 +1,7 @@
 from enum import Enum, auto
 
 
-class ControllerAbstraction(Enum):
-
-    LEFT_ANALOGUE_STICK_X: str = "LEFT_ANALOGUE_STICK_X"
-    LEFT_ANALOGUE_STICK_Y: str = "LEFT_ANALOGUE_STICK_Y"
-
-    RIGHT_ANALOGUE_STICK_X: str = "RIGHT_ANALOGUE_STICK_X"
-    RIGHT_ANALOGUE_STICK_Y: str = "RIGHT_ANALOGUE_STICK_Y"
+class ControllerButtons(Enum):
     
     FACE_BUTTON_NORTH: str = "FACE_BUTTON_NORTH"
     FACE_BUTTON_SOUTH: str = "FACE_BUTTON_SOUTH"
@@ -33,3 +27,38 @@ class ControllerAbstraction(Enum):
     LEFT_CENTRAL_BUTTON: str = "LEFT_CENTRAL_BUTTON"
     # start on Ps1,2 and Xbox 360
     RIGHT_CENTRAL_BUTTON: str = "RIGHT_CENTRAL_BUTTON"
+
+
+class ControllerAxes(Enum):
+
+    LEFT_ANALOGUE_STICK_X: str = "LEFT_ANALOGUE_STICK_X"
+    LEFT_ANALOGUE_STICK_Y: str = "LEFT_ANALOGUE_STICK_Y"
+
+    RIGHT_ANALOGUE_STICK_X: str = "RIGHT_ANALOGUE_STICK_X"
+    RIGHT_ANALOGUE_STICK_Y: str = "RIGHT_ANALOGUE_STICK_Y"
+
+
+class GamepadPyEventMapper:
+
+    def handleButtonDown(self, button_num: int):
+        pass
+
+    def handleButtonUp(self, button_num: int):
+        pass
+
+    def handleHatMotion(self, axis_num: int, value: tuple[int, int]):
+        pass
+
+    def handleAxisMotion(self, axis_num: int, value: int):
+        pass
+
+
+class GenericGamepadListener:
+    def onButtonDown(self, button: ControllerButtons):
+        pass
+
+    def onButtonUp(self, button: ControllerButtons):
+        pass
+
+    def onAxisMotion(self, axis:ControllerAxes, value:float):
+        pass

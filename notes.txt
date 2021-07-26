@@ -1,0 +1,28 @@
+every note play event overrides any previously playing note
+there is  a 'stop playing note' button
+but a note keeps ringing out until you stop them
+
+the instrument is strictly monotonic - only one note will play at a time
+
+the D-pad are the frets - 0-4 (5 notes)
+the face buttons (A,B,X,Y) are the strings - when pressed, they sound out the note selected by the D-pad
+each face button's notes start after the range of the last one:
+
+North Face Button: Triangle on Playstation, Y on Xbox
+East Face button: Circle on Playstation, B on Xbox, A on Nintendo
+South Face button: X on Playstation, A on Xbox, B on Nintendo
+West Face Button: Square on Playstation, X on Xbox, Y on Nintendo
+
+centre buttons (select/start etc):
+left one: toggle +/- 1 octave
+right one: toggle +/- 2 octaves
+
+there should be a button which toggles sustain mode - switches the controller between acting as described above (where notes keep ringing until replaced or cancelled),
+and a 'stop playing any notes' button - to stop the drone, and as a last-resort panic button to cease all midi notes
+
+if holding an analogue stick fully out from the centre before pressing a note AND there is already a note currently playing,
+then you can slide between the currently playing note and the note you are pressing now,
+by moving the stick between where it started when you started pressing the note,
+and the opposite side (between north and south, between east and west, between northeast and southwest - between the starting point and its 180 degree opposed position)
+
+finally, see if you can squeeze in the volume expression on the other analogue stick
