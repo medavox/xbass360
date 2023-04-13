@@ -23,14 +23,18 @@ switch_pro_controller_buttons = {
 }
 
 switch_pro_controller_axes = {
+    # negative is left
     0: Axes.LEFT_ANALOGUE_STICK_X,
+    # negative is up
     1: Axes.LEFT_ANALOGUE_STICK_Y,
+    # negative is left
     2: Axes.RIGHT_ANALOGUE_STICK_X,
+    # negative is up
     3: Axes.RIGHT_ANALOGUE_STICK_Y,
 }
 
 
-class SwitchProControllerHandler(GamepadPyEventMapper):
+class SwitchProControllerEventMapper(GamepadPyEventMapper):
 
     def __init__(self, listener: GenericGamepadListener):
         self.listener = listener
@@ -42,7 +46,8 @@ class SwitchProControllerHandler(GamepadPyEventMapper):
         self.listener.onButtonDown(switch_pro_controller_buttons[button_num])
 
     def handleHatMotion(self, axis_num: int, value: tuple[int, int]):
-        #TODO
+        super().handleHatMotion(axis_num, value)
 
     def handleAxisMotion(self, axis_num: int, value: int):
-        #todo: check the axes aren't flipped between xbox and switch, or some shit
+        super().handleAxisMotion(axis_num, value)
+        self.listener.onAxisMotion(switch_pro_controller_axes[axis_num], value)

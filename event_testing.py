@@ -63,15 +63,13 @@ while not done:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True
-        print("controllers: "+str(pygame.joystick.get_count()))
+        #print("controllers: "+str(pygame.joystick.get_count()))
         if pygame.JOYAXISMOTION == event.type:
             print("axis "+str(event.axis)+" motion: "+str(event.value))
         elif pygame.JOYHATMOTION == event.type:
             print("Hat: "+str(event.hat)+"; value: "+str(event.value))
         elif pygame.JOYBUTTONDOWN == event.type:
             print("button down: "+str(event.button))
-        else:
-            print("event type:"+str(pygame.event.event_name(event.type)))
         if pygame.joystick.get_count():
             if not lastJoystickCount:
                 joystick = pygame.joystick.Joystick(0)

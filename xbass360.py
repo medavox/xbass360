@@ -30,8 +30,6 @@ pygame.joystick.init()
 mido.set_backend('mido.backends.rtmidi')
 print(mido.get_output_names())
 
-
-
 outport = mido.open_output(name='loopMIDI Port 1')
 #outport = mido.open_output(name='LoopBe Internal MIDI 1')
 

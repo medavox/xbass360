@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import pygame
 import math
 
@@ -99,7 +101,7 @@ while not done:
     # JOYBUTTONUP, JOYHATMOTION
     for event in pygame.event.get(): # User did something.
         if event.type == pygame.QUIT: # If user clicked close.
-            done = True # Flag that we are done so we exit this loop.
+            done = True # Flag that we are done so we exit next loop.
         elif event.type == pygame.JOYBUTTONDOWN:
             print("Joystick button pressed.")
         elif event.type == pygame.JOYBUTTONUP:
@@ -144,7 +146,7 @@ while not done:
         else:
             textPrint.tprint(screen, "GUID: {}".format(guid))
 
-        # Usually axis run in pairs, up/down for one, and left/right for
+        # Usually axes run in pairs: up/down for one, and left/right for
         # the other.
         axes = joystick.get_numaxes()
         textPrint.tprint(screen, "Number of axes: {}".format(axes))

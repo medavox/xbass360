@@ -2,31 +2,48 @@ from enum import Enum, auto
 
 
 class ControllerButtons(Enum):
-    
-    FACE_BUTTON_NORTH: str = "FACE_BUTTON_NORTH"
-    FACE_BUTTON_SOUTH: str = "FACE_BUTTON_SOUTH"
-    FACE_BUTTON_EAST: str = "FACE_BUTTON_EAST"
-    FACE_BUTTON_WEST: str = "FACE_BUTTON_WEST"
+    pass
 
-    DPAD_UP: str = "DPAD_UP"
-    DPAD_DOWN: str = "DPAD_DOWN"
-    DPAD_LEFT: str = "DPAD_LEFT"
-    DPAD_RIGHT: str = "DPAD_RIGHT"
+class FACE_BUTTON_NORTH(ControllerButtons):
+    pass
+class FACE_BUTTON_SOUTH(ControllerButtons):
+    pass
+class FACE_BUTTON_EAST(ControllerButtons):
+    pass
+class FACE_BUTTON_WEST(ControllerButtons):
+    pass
 
-    LEFT_ANALOGUE_STICK_BUTTON: str = "LEFT_ANALOGUE_STICK_BUTTON"
-    RIGHT_ANALOGUE_STICK_BUTTON: str = "RIGHT_ANALOGUE_STICK_BUTTON"
+class DPAD_UP(ControllerButtons):
+    pass
+class DPAD_DOWN(ControllerButtons):
+    pass
+class DPAD_LEFT(ControllerButtons):
+    pass
+class DPAD_RIGHT(ControllerButtons):
+    pass
 
-    LEFT_TRIGGER: str = "LEFT_TRIGGER"
-    RIGHT_TRIGGER: str = "RIGHT_TRIGGER"
+class LEFT_ANALOGUE_STICK_BUTTON(ControllerButtons):
+    pass
+class RIGHT_ANALOGUE_STICK_BUTTON(ControllerButtons):
+    pass
 
-    # L1 on Playstation, LB on Xbox
-    LEFT_SHOULDER_BUTTON: str = "LEFT_SHOULDER_BUTTON"
-    RIGHT_SHOULDER_BUTTON: str = "RIGHT_SHOULDER_BUTTON"
+class LEFT_TRIGGER(ControllerButtons):
+    pass
+class RIGHT_TRIGGER(ControllerButtons):
+    pass
 
-    # eg select on PS1,2; and back on Xbox360
-    LEFT_CENTRAL_BUTTON: str = "LEFT_CENTRAL_BUTTON"
-    # start on Ps1,2 and Xbox 360
-    RIGHT_CENTRAL_BUTTON: str = "RIGHT_CENTRAL_BUTTON"
+# L1 on Playstation, LB on Xbox
+class LEFT_SHOULDER_BUTTON(ControllerButtons):
+    pass
+class RIGHT_SHOULDER_BUTTON(ControllerButtons):
+    pass
+
+# eg select on PS1,2; and back on Xbox360
+class LEFT_CENTRAL_BUTTON(ControllerButtons):
+    pass
+# start on Ps1,2 and Xbox 360
+class RIGHT_CENTRAL_BUTTON(ControllerButtons):
+    pass
 
 
 class ControllerAxes(Enum):
